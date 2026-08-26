@@ -41,15 +41,8 @@ SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-'''
-print("SMTP_USERNAME:", SMTP_USERNAME)
-print("SMTP_PASSWORD loaded:", bool(SMTP_PASSWORD))
-print("SMTP_PASSWORD length:", len(SMTP_PASSWORD or ""))
-'''
-FRONTEND_RESET_URL = os.getenv(
-    "FRONTEND_RESET_URL",
-    "http://localhost:5173/reset-password"
-)
+FRONTEND_RESET_URL = os.getenv("FRONTEND_RESET_URL", "http://localhost:5173/reset-password")
+
 # DEVELOPMENT-ONLY: email sending isn't implemented yet, so when this is
 # "true" /auth/forgot-password includes the raw reset token directly in
 # its JSON response, purely so the flow can be tested end-to-end via
@@ -337,7 +330,6 @@ _GENERIC_FORGOT_PASSWORD_RESPONSE = {
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    print("FORGOT PASSWORD ENDPOINT CALLED")
     email = payload.email.strip().lower()
     user = db.query(User).filter(User.email == email).first()
 
@@ -360,8 +352,13 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 
     try:
         send_reset_email(user.email, raw_token)
-    except Exception as e:
-        print(f"PASSWORD RESET EMAIL ERROR: {e}")
+    except Exception:
+        # Email sending failed (bad SMTP config, network issue, etc).
+        # The token still exists in the database and remains valid until
+        # it expires, so this is safe to fail silently to the caller —
+        # revealing SMTP errors here would leak infrastructure details
+        # and could also confirm account existence.
+        pass
 
     return _GENERIC_FORGOT_PASSWORD_RESPONSE
 
