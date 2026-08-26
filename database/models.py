@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Float, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database.connection import Base
@@ -401,9 +401,45 @@ class User(Base):
 
     username = Column(String(100), unique=True, nullable=False, index=True)
     email = Column(String(150), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)
 
     # "local" for username/password accounts, "google" for OAuth accounts
     auth_provider = Column(String(50), default="local")
-
+    google_id = Column(String(255), unique=True, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    token_hash = Column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False
+    )
+
+    used = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    user = relationship("User")
